@@ -1,20 +1,71 @@
-version: "3"
 services:
   postgres:
-    image: library/postgres:13
-    container_name: postgres
-    restart: on-failure
+    image: postgres:13
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./postgres/:/docker-entrypoint-initdb.d/
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [library-net]
+  library-service:
+    build: ./library-service
+    environment:
+      PORT: 8060
+      DATABASE_URL: postgres://program:test@postgres:5432/libraries
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8060/manage/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [library-net]
+  reservation-service:
+    build: ./reservation-service
+    environment:
+      PORT: 8070
+      DATABASE_URL: postgres://program:test@postgres:5432/reservations
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8070/manage/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [library-net]
+  rating-service:
+    build: ./rating-service
+    environment:
+      PORT: 8050
+      DATABASE_URL: postgres://program:test@postgres:5432/ratings
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8050/manage/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [library-net]
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     ports:
-      - "5432:5432"
-
-# TODO добавить сервисы
-
+      - "8080:80"
+    depends_on:
+      library-service: { condition: service_healthy }
+      reservation-service: { condition: service_healthy }
+      rating-service: { condition: service_healthy }
+    networks: [library-net]
+networks:
+  library-net:
+    driver: bridge
 volumes:
   db-data:
