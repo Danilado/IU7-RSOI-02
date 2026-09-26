@@ -1,5 +1,0 @@
-const express=require('express');const {Pool,types}=require('pg');types.setTypeParser(1082,value=>value);const app=express();app.use(express.json());const db=new Pool({connectionString:process.env.DATABASE_URL});
-app.get('/manage/health',(_q,r)=>r.sendStatus(200));
-app.get('/internal/rating/:username',async(q,r,n)=>{try{const x=await db.query('INSERT INTO rating(username,stars) VALUES($1,1) ON CONFLICT(username) DO UPDATE SET username=EXCLUDED.username RETURNING stars',[q.params.username]);r.json({stars:x.rows[0].stars})}catch(e){n(e)}});
-app.post('/internal/rating/:username/change',async(q,r,n)=>{try{const delta=Number(q.body.delta);if(!Number.isFinite(delta))return r.status(400).json({message:'delta must be a number'});const x=await db.query('INSERT INTO rating(username,stars) VALUES($1,GREATEST(1,LEAST(100,1+$2))) ON CONFLICT(username) DO UPDATE SET stars=GREATEST(1,LEAST(100,rating.stars+$2)) RETURNING stars',[q.params.username,delta]);r.json({stars:x.rows[0].stars})}catch(e){n(e)}});
-app.use((e,_q,r,_n)=>{console.error(e);r.status(500).json({message:'Internal server error'})});app.listen(process.env.PORT||8050,'0.0.0.0');

@@ -17,8 +17,11 @@ jobs:
 
       - uses: docker/setup-buildx-action@v2
 
+      - name: Install test dependencies
+        run: npm ci --prefix gateway
+
       - name: Run unit tests
-        run: node --test tests/*.test.js
+        run: npm test --prefix gateway
 
       - name: Build images
         timeout-minutes: 10
